@@ -1,0 +1,25 @@
+# Findings log
+
+**What the build taught, especially where reality contradicted the design.**
+
+**Read this before touching a task**, and read it whole before anything that only a person can
+verify. It is the only place a hand-verification is written down: `npm test` is the only
+evidence a session can produce on its own, so a ✅ line here is the *entire* record that
+something was seen working for real.
+
+**Newest first. About forty words a row.** The long version belongs in the commit message.
+
+**What goes here:** anything the build taught that the next session would otherwise
+rediscover; anything noticed but deliberately left alone under the scope rule; every answer
+that came back from the user's own hands, with its date.
+
+Legend: 🐞 a defect found · ✅ verified by hand with the user · 📌 worth knowing ·
+🔄 a decision the user changed.
+
+| Date | Finding | Consequence |
+|---|---|---|
+| 2026-08-26 | 📌 Node 24's built-in test runner works here with zero dependencies installed — `node --test` on a bare directory ran green. | `npm test` needs no test framework. The project's runtime dependency count stays at zero. |
+| 2026-08-26 | 📌 Homebrew's `openscad` cask is **2021.01 and deprecated — disabled 2026-09-01**, six days from planning. The current build is a separate cask, `openscad@snapshot`, at 2026.06.12. | If T00 chooses OpenSCAD it must install `openscad@snapshot`. A session reaching for the obvious `brew install --cask openscad` will hit a wall. The snapshot is also the build with the Manifold backend, which matters for watertight output and speed. |
+| 2026-08-26 | 📌 Confirmed from Creality's own listing rather than memory: Ender-3 V3 KE is **220 × 220 × 240 mm, 0.4 mm nozzle, 300 °C max hotend, direct drive**. | Build-volume checks use 220/220/240 less a 5 mm per-axis margin. 300 °C means PETG is comfortable. Direct drive means bridging and PETG behave better than on older Ender-3s, which is why the overhang bands are set at 45°/60°/85° rather than more conservatively. |
+| 2026-08-26 | 📌 Nothing 3D-related is installed on this machine: no OpenSCAD, Blender, FreeCAD, MeshLab, admesh, f3d, and **no slicer of any kind**. System Python is 3.9.6. | Every workflow must assume a bare machine. Anything Python-shaped goes through `uv`, never `/usr/bin/python3`. No design may lean on a slicer — which is also why proper thin-wall detection is out of scope. |
+| 2026-08-26 | 📌 Binary STL files frequently begin with the ASCII text `solid`, because writers put a name in the 80-byte header. | ASCII-vs-binary detection must test whether `80 + 4 + 50 × triangleCount` equals the file length, never the `solid` prefix. T02 tests this explicitly. |
