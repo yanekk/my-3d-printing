@@ -375,7 +375,8 @@ The last row is the point of §5.1.
 | Runtime | Node v24.2.0 (`/opt/homebrew/bin/node`), npm available |
 | Package managers | Homebrew 6.0.19, uv 0.11.11 |
 | System Python | 3.9.6 (`/usr/bin/python3`) — old; anything Python-shaped must go through `uv`, never the system interpreter |
-| **Deliberately absent** | **No OpenSCAD, no Blender, no FreeCAD, no MeshLab, no admesh, no f3d. No slicer of any kind — no PrusaSlicer, no OrcaSlicer, no Cura, no Bambu Studio. No CAD GUI.** Do not propose a workflow that assumes any of these; T00 installs exactly one thing and says which. |
+| **CAD toolchain** | **OpenSCAD 2026.06.12** — chosen by T00 on measurement, confirmed by the user 2026-08-27. See §5.3. |
+| **Deliberately absent** | **No Blender, no FreeCAD, no MeshLab, no admesh, no f3d. No slicer of any kind — no PrusaSlicer, no OrcaSlicer, no Cura, no Bambu Studio.** Do not propose a workflow that assumes any of these. OpenSCAD is the *only* external binary this project may use. |
 
 **The test command.**
 
@@ -392,14 +393,14 @@ only**, and it is `npm install`ed once, its needed files copied into `preview/ve
 the copies committed. The preview must work with no network. Adding any other dependency is a
 decision for the user, not for an implementing session.
 
-**External binaries:** exactly one, the CAD toolchain chosen by T00. Its absence must produce
-a clear message naming the install command, not a stack trace.
+**External binaries:** exactly one, `openscad`. Its absence must produce a clear message
+naming the install command from §5.3, not a stack trace.
 
 ### 5.1 What the test command cannot reach
 
 | Cannot be tested automatically | Why it needs a person |
 |---|---|
-| The CAD toolchain installs at all | Installs software system-wide; the user runs installers, not the assistant |
+| OpenSCAD installs at all | Installs software system-wide; the user runs installers, not the assistant. **Verified by hand 2026-08-27** — see FINDINGS.md |
 | Whether a recipe produces the shape that was asked for | Requires looking at it |
 | The viewer renders, orbits, and does not stutter | Requires a screen and a browser |
 | Overhang shading is legible and the bands are distinguishable | Requires eyes and a colour judgement |
@@ -426,6 +427,55 @@ a clear message naming the install command, not a stack trace.
 **Never ask the user to run the unbounded version of anything to find something out, and never
 run it yourself.** In particular: no CAD invocation without its timeout, ever, including
 during a spike.
+
+### 5.3 The CAD toolchain — OpenSCAD
+
+**Decided by T00 by building the same parts both ways on this machine, and confirmed by the
+user on 2026-08-27.** The alternative measured was build123d 0.11.1; the reasoning and the
+numbers are in `FINDINGS.md`, and the short version is 7–30× faster builds, one runtime
+instead of two, 149 MB instead of 462 MB, and a recipe a non-programmer can read.
+
+```
+brew install --cask openscad@snapshot
+```
+
+**`openscad@snapshot`, never `openscad`.** The plain cask is 2021.01, deprecated, and disabled
+from 2026-09-01. The snapshot is also the build with the Manifold backend, which is what makes
+watertight output and sub-second builds possible.
+
+| | |
+|---|---|
+| Version | 2026.06.12 |
+| Binary | `/opt/homebrew/bin/openscad` → `/Applications/OpenSCAD.app/Contents/MacOS/OpenSCAD` |
+| Size | 149 MB |
+| Recipe extension | `.scad` |
+
+**Export must name the format explicitly:**
+
+```
+openscad --export-format binstl -o out.stl model.scad
+```
+
+**OpenSCAD's STL default is ASCII**, which is roughly 2× the size and is not what T02's reader
+expects. `.step` is rejected outright and `step` is not a known format — there is **no STEP
+export**, which is the one capability knowingly given up here. Available: stl, off, wrl, amf,
+3mf, csg, dxf, svg, pdf, png.
+
+**It renders to PNG headlessly, and that is load-bearing rather than a nicety:**
+
+```
+openscad -o view.png --viewall --autocenter --camera=0,0,0,58,0,35,0 view.scad
+```
+
+where `view.scad` is `import("model.stl");`. About 0.3 s. This is how a session satisfies the
+user's standing rule — build it, render it, *look at it*, iterate until right, and only then
+present it. Exact bounding box and a watertight mesh do not establish that a part is correct:
+a mirrored marking passes both. See `FINDINGS.md`, 2026-08-27.
+
+**A first run that hangs is a dialog, not a crash.** Every CLI invocation blocked indefinitely
+until the user dismissed a Gatekeeper "downloaded from the internet" prompt, while `spctl`
+reported the app notarized and accepted throughout. §5.2's timeout message must name this
+possibility, or the first person to hit it will believe the build pipeline is broken.
 
 ---
 
@@ -461,7 +511,7 @@ the core is pure and its fixtures are checked in.
 | Decision | Alternative | Why it won |
 |---|---|---|
 | **Store recipes, not meshes** (2026-08-26, user) | Store STLs; store both | An STL cannot be diffed, edited by one number, or read by a human. The user chose "recipe only, rebuild on demand" explicitly. |
-| **Recipe language decided by measurement, not opinion** | Pick OpenSCAD on reputation | T00 builds the same part both ways on this machine. The prior leans OpenSCAD — it keeps the project on a single runtime (Node + one binary), its source is legible to a non-programmer, and its Manifold backend guarantees watertight output. The counter-argument is fillets and STEP export, which favour build123d/CadQuery at the cost of a second runtime and a 300 MB wheel. Measure it. |
+| **OpenSCAD as the recipe language** (2026-08-27, user, on T00's measurements) | build123d 0.11.1 | Both built the same parts exactly and watertight, so correctness did not separate them. OpenSCAD won on speed (0.06–0.33 s vs 1.7–3.9 s), one runtime instead of two, 149 MB vs 462 MB, a cleaner mesh, and source legible to a non-programmer. Two of the prior's predictions were **disproved**: rounding was one line with no BOSL2, and guaranteed-manifold output was matched by build123d. STEP export is the one real loss and was accepted. The honest counter-argument, recorded because it nearly won: build123d **refused** an impossible R3 fillet and named the 2.67 mm limit, where OpenSCAD silently approximated and passed every check this design plans to have. It was outweighed because the user's render-and-check rule, not the toolchain, is the real safety net — and OpenSCAD renders those previews itself. |
 | **Node for everything else** | Python | Node 24 is installed and current; the system Python is 3.9.6. The preview is unavoidably browser JavaScript, so choosing Node means one language across the whole project instead of two. |
 | **Zero runtime dependencies** | Use a mesh library | STL parsing and the measurements here are a few hundred lines of arithmetic. A dependency-free test command cannot rot, and this project will sit untouched for months at a time. |
 | **Report, never block** (2026-08-26, user) | Refuse unprintable geometry | The user is prototyping and will deliberately produce impossible things. Blocking would be wrong at exactly the moments it fired. |
@@ -485,6 +535,6 @@ the core is pure and its fixtures are checked in.
 | **Proper thin-wall detection** | Genuinely requires a slicer's toolpath generation, which is out of scope. The report catches the crude case (a feature smaller than the nozzle) and **must state the limitation in its own output** rather than let silence imply coverage. |
 | **Multi-part assemblies, mating checks, interference detection** | Not asked for. A real need, but a much larger design. |
 | **Mesh repair** | Reporting a broken mesh is in scope; fixing it is not. The right fix is almost always in the recipe, and repairing the mesh would hide the actual bug. |
-| **Non-STL formats (3MF, STEP, OBJ)** | Not asked for. If T00 chooses a B-rep kernel, STEP export becomes nearly free and is worth revisiting *with the user*, not silently. |
+| **Non-STL formats (3MF, STEP, OBJ)** | Not asked for. **STEP is now impossible** — OpenSCAD cannot write it, and that was accepted when the language was chosen. 3MF *is* available and would be nearly free if ever wanted, but is a decision for the user, not a silent addition. |
 | **Numbered version history in the model folder** | User chose one-file-overwritten. History is git's job. |
 | **Any network access at runtime** | The preview must work offline; there is nothing to fetch. Vendored three.js, loopback-only server. |

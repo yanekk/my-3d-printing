@@ -6,12 +6,13 @@
 that touch the task you are picking up, and append yours there. It is where "verified by hand
 with the user" is written down. **Sixty words to a Notes cell here, forty to a finding there.**
 
-**Status:** T00 measured in full, both candidates, and **waiting on the user's decision**. The
-comparison table is complete; the recommendation is OpenSCAD. Nothing else is built. `spike/`
-still exists and is deleted the moment the decision lands.
+**Status:** T00 done and awaiting review. The recipe language is settled — **OpenSCAD**,
+recorded in [DESIGN.md](DESIGN.md) §5.3 and §7. Nothing else is built; T08's build pipeline is
+now unblocked, and so is T14.
 **Last updated:** 2026-08-27
-**Next `pir-work` will:** close **T00** once the user picks — write the choice into `DESIGN.md`
-§5, delete `spike/`, mark 🔍. If the decision is already recorded, implement **T01**.
+**Next `pir-work` will:** review **T00** — the only 🔍 in the table. There is no code to review,
+so the review is of the written record: that `DESIGN.md` §5.3 matches what was measured, that
+`FINDINGS.md` carries the losing case as well as the winning one, and that `spike/` really is gone.
 
 ## Tasks
 
@@ -20,7 +21,7 @@ done · ⛔ blocked, needs a human.
 
 | # | Task | Depends on | State | Notes |
 |---|---|---|---|---|
-| T00 | Spike: choose the recipe language | — | 🟡 | Round 2 (user asked for a hard part) ran a fan-duct adapter both ways. Both exact and watertight; OpenSCAD 7× faster, 1 attempt vs 3. **But the brief's R3 fillet was impossible: build123d refused, OpenSCAD silently approximated and no planned check would have caught it.** Awaiting the user's pick. |
+| T00 | Spike: choose the recipe language | — | 🔍 | **OpenSCAD chosen** (user, 2026-08-27) after three parts built both ways. `DESIGN.md §5.3` added: binary, install command, mandatory `--export-format binstl`, no STEP, headless PNG render. `spike/` deleted. No tests — this task produced a decision. |
 | T01 | Skeleton, `npm test`, purity-boundary test | — | ⬜ | Independent of T00. |
 | T02 | STL read and write | T01 | ⬜ | |
 | T03 | Mesh measurements | T02 | ⬜ | |
@@ -40,23 +41,11 @@ done · ⛔ blocked, needs a human.
 one line per deviation from the task doc. The cell is the index; the account is the commit
 message.
 
-**Review queue:** *(empty)*
+**Review queue:** T00
 
 ## Blocked on the user
 
-**T00 — the recipe-language decision.** Install done and verified 2026-08-27; the measuring is
-finished and both candidates work. What is left is a choice, and it is the user's:
+*(Nothing — a good state.)*
 
-> **OpenSCAD** — ~700× faster, one runtime, half the install, tidier mesh, source a
-> non-programmer can read. Loses STEP export, and true 3D edge fillets stay awkward.
-> **build123d** — real CAD kernel, STEP export, fillets anywhere. Costs a second language,
-> 462 MB, and a 46 s cold start that breaks DESIGN.md §5.2's 30 s timeout outright.
-
-Recommended: **OpenSCAD**, but with less confidence than before round 2. The speed, single
-runtime and legibility all held up on a hard part. What changed is that OpenSCAD was shown to
-produce a wrong-but-plausible fillet **without failing**, and the project's planned checks —
-exact bbox, watertight mesh — passed on it. If that silence worries the user more than a second
-runtime does, build123d is the defensible choice and this recommendation should not be treated
-as settling it.
-
-Nothing further is built until this is answered — the whole of Phase 2 is designed on top of it.
+T00's two questions are both answered and written down: the OpenSCAD install was run and
+verified by hand on 2026-08-27, and the language decision came back **OpenSCAD** the same day.
