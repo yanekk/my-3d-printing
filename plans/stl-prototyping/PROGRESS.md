@@ -6,12 +6,12 @@
 that touch the task you are picking up, and append yours there. It is where "verified by hand
 with the user" is written down. **Sixty words to a Notes cell here, forty to a finding there.**
 
-**Status:** T00 in progress and **waiting on the user**. Candidate B (build123d) is built and
-measured; candidate A (OpenSCAD) cannot be run because OpenSCAD is not installed and installing
-it is the user's job. Nothing else is built.
+**Status:** T00 measured in full, both candidates, and **waiting on the user's decision**. The
+comparison table is complete; the recommendation is OpenSCAD. Nothing else is built. `spike/`
+still exists and is deleted the moment the decision lands.
 **Last updated:** 2026-08-27
-**Next `pir-work` will:** finish **T00** — run the OpenSCAD half of the comparison once the
-user confirms the install, complete the table, recommend, and wait for their decision.
+**Next `pir-work` will:** close **T00** once the user picks — write the choice into `DESIGN.md`
+§5, delete `spike/`, mark 🔍. If the decision is already recorded, implement **T01**.
 
 ## Tasks
 
@@ -20,7 +20,7 @@ done · ⛔ blocked, needs a human.
 
 | # | Task | Depends on | State | Notes |
 |---|---|---|---|---|
-| T00 | Spike: choose the recipe language | — | 🟡 | build123d half done: 1 attempt, exact 40×30×25 bbox, watertight, 1858 tris, STEP ok, 462 MB, 46 s cold / 1.7 s warm. OpenSCAD half blocked on the install. Table and recommendation pending. |
+| T00 | Spike: choose the recipe language | — | 🟡 | Both measured. OpenSCAD: 0.06 s, 974 tris, 149 MB, no STEP, one runtime. build123d: 46 s cold / 1.7 s warm, 1858 tris, 462 MB, STEP works, second runtime. Both exact and watertight. **Recommended OpenSCAD; awaiting the user's pick.** |
 | T01 | Skeleton, `npm test`, purity-boundary test | — | ⬜ | Independent of T00. |
 | T02 | STL read and write | T01 | ⬜ | |
 | T03 | Mesh measurements | T02 | ⬜ | |
@@ -44,12 +44,13 @@ message.
 
 ## Blocked on the user
 
-**T00 — OpenSCAD install.** Asked 2026-08-27. The spike cannot measure candidate A without it:
+**T00 — the recipe-language decision.** Install done and verified 2026-08-27; the measuring is
+finished and both candidates work. What is left is a choice, and it is the user's:
 
-```
-brew install --cask openscad@snapshot
-```
+> **OpenSCAD** — ~700× faster, one runtime, half the install, tidier mesh, source a
+> non-programmer can read. Loses STEP export, and true 3D edge fillets stay awkward.
+> **build123d** — real CAD kernel, STEP export, fillets anywhere. Costs a second language,
+> 462 MB, and a 46 s cold start that breaks DESIGN.md §5.2's 30 s timeout outright.
 
-Not `--cask openscad`: that one is 2021.01 and disabled 2026-09-01 (see FINDINGS.md). Needed
-back: whether it completed, and what `openscad --version` prints. A refusal is also a decisive
-answer — it settles the spike on build123d-vs-nothing rather than leaving data missing.
+Recommended: **OpenSCAD**. Nothing further is built until this is answered — the whole of
+Phase 2 is designed on top of it.
