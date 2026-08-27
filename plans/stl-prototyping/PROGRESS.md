@@ -20,7 +20,7 @@ done · ⛔ blocked, needs a human.
 
 | # | Task | Depends on | State | Notes |
 |---|---|---|---|---|
-| T00 | Spike: choose the recipe language | — | 🟡 | Both measured. OpenSCAD: 0.06 s, 974 tris, 149 MB, no STEP, one runtime. build123d: 46 s cold / 1.7 s warm, 1858 tris, 462 MB, STEP works, second runtime. Both exact and watertight. **Recommended OpenSCAD; awaiting the user's pick.** |
+| T00 | Spike: choose the recipe language | — | 🟡 | Round 2 (user asked for a hard part) ran a fan-duct adapter both ways. Both exact and watertight; OpenSCAD 7× faster, 1 attempt vs 3. **But the brief's R3 fillet was impossible: build123d refused, OpenSCAD silently approximated and no planned check would have caught it.** Awaiting the user's pick. |
 | T01 | Skeleton, `npm test`, purity-boundary test | — | ⬜ | Independent of T00. |
 | T02 | STL read and write | T01 | ⬜ | |
 | T03 | Mesh measurements | T02 | ⬜ | |
@@ -52,5 +52,11 @@ finished and both candidates work. What is left is a choice, and it is the user'
 > **build123d** — real CAD kernel, STEP export, fillets anywhere. Costs a second language,
 > 462 MB, and a 46 s cold start that breaks DESIGN.md §5.2's 30 s timeout outright.
 
-Recommended: **OpenSCAD**. Nothing further is built until this is answered — the whole of
-Phase 2 is designed on top of it.
+Recommended: **OpenSCAD**, but with less confidence than before round 2. The speed, single
+runtime and legibility all held up on a hard part. What changed is that OpenSCAD was shown to
+produce a wrong-but-plausible fillet **without failing**, and the project's planned checks —
+exact bbox, watertight mesh — passed on it. If that silence worries the user more than a second
+runtime does, build123d is the defensible choice and this recommendation should not be treated
+as settling it.
+
+Nothing further is built until this is answered — the whole of Phase 2 is designed on top of it.
