@@ -6,12 +6,11 @@
 that touch the task you are picking up, and append yours there. It is where "verified by hand
 with the user" is written down. **Sixty words to a Notes cell here, forty to a finding there.**
 
-**Status:** T00 reviewed and closed. The recipe language is settled — **OpenSCAD**, and every
-command in [DESIGN.md](DESIGN.md) §5.3 was re-run and confirmed during the review. No code
-exists yet; Phase 1 starts now, and T08 and T14 are unblocked.
+**Status:** T01 is built and awaiting review. The project now runs its own tests — `npm test`,
+19 of them, green on a clean checkout with nothing installed — and defends its own boundary
+before there is any core code to make an exception for. T02 is unblocked once T01 is reviewed.
 **Last updated:** 2026-08-27
-**Next `pir-work` will:** implement **T01** — the skeleton, `npm test`, and the purity-boundary
-test. It is the lowest-numbered ⬜ and depends on nothing.
+**Next `pir-work` will:** review **T01**. It is the only 🔍 and review comes before new work.
 
 ## Tasks
 
@@ -21,7 +20,7 @@ done · ⛔ blocked, needs a human.
 | # | Task | Depends on | State | Notes |
 |---|---|---|---|---|
 | T00 | Spike: choose the recipe language | — | ✅ | **OpenSCAD chosen** (user, 2026-08-27). Review re-ran all six §5.3 commands — all hold. Fixed: §7's speed range excluded a measured 0.39 s; §5.2 never got the Gatekeeper note §5.3 demands. One table row ("named constants") unfillable, `spike/` gone. |
-| T01 | Skeleton, `npm test`, purity-boundary test | — | ⬜ | Independent of T00. |
+| T01 | Skeleton, `npm test`, purity-boundary test | — | 🔍 | `package.json`, `.gitignore`, README, `core/paths.js`, boundary + paths tests. **19 tests**, green with no `npm install`; a `node:fs` planted in `core/` was proved to fail them. Deviations: `.gitignore` also ignores `.DS_Store`; `recipePath` defaults to `scad`, accepts it with or without a dot, and validates it; `isInside(root, root)` is false. |
 | T02 | STL read and write | T01 | ⬜ | |
 | T03 | Mesh measurements | T02 | ⬜ | |
 | T04 | Solidity: watertight, boundary edges, winding | T03 | ⬜ | |
@@ -40,7 +39,7 @@ done · ⛔ blocked, needs a human.
 one line per deviation from the task doc. The cell is the index; the account is the commit
 message.
 
-**Review queue:** *(empty)*
+**Review queue:** **T01**.
 
 ## Blocked on the user
 
