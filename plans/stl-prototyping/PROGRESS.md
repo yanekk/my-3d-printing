@@ -6,15 +6,12 @@
 that touch the task you are picking up, and append yours there. It is where "verified by hand
 with the user" is written down. **Sixty words to a Notes cell here, forty to a finding there.**
 
-**Status:** Planned, nothing built. 15 tasks across 5 phases; see [PLAN.md](PLAN.md). The
-recipe language is deliberately undecided and is settled by T00 on this machine, so T00 blocks
-the build pipeline. T01 is independent of T00 and is the fallback if the user is unavailable
-to run T00's install.
-**Last updated:** 2026-08-26
-**Next `pir-work` will:** implement **T00** — the throwaway spike that chooses the recipe
-language. It goes first because everything in Phase 2 is designed on top of its answer, and
-because it is the one task that needs the user to run an install, so it is the task most worth
-starting while they are around.
+**Status:** T00 in progress and **waiting on the user**. Candidate B (build123d) is built and
+measured; candidate A (OpenSCAD) cannot be run because OpenSCAD is not installed and installing
+it is the user's job. Nothing else is built.
+**Last updated:** 2026-08-27
+**Next `pir-work` will:** finish **T00** — run the OpenSCAD half of the comparison once the
+user confirms the install, complete the table, recommend, and wait for their decision.
 
 ## Tasks
 
@@ -23,7 +20,7 @@ done · ⛔ blocked, needs a human.
 
 | # | Task | Depends on | State | Notes |
 |---|---|---|---|---|
-| T00 | Spike: choose the recipe language | — | ⬜ | Throwaway; code deleted afterwards. Needs the user to run one install command. Ends by reporting a recommendation and waiting for confirmation. |
+| T00 | Spike: choose the recipe language | — | 🟡 | build123d half done: 1 attempt, exact 40×30×25 bbox, watertight, 1858 tris, STEP ok, 462 MB, 46 s cold / 1.7 s warm. OpenSCAD half blocked on the install. Table and recommendation pending. |
 | T01 | Skeleton, `npm test`, purity-boundary test | — | ⬜ | Independent of T00. |
 | T02 | STL read and write | T01 | ⬜ | |
 | T03 | Mesh measurements | T02 | ⬜ | |
@@ -47,7 +44,12 @@ message.
 
 ## Blocked on the user
 
-*(Nothing yet — a good state.)*
+**T00 — OpenSCAD install.** Asked 2026-08-27. The spike cannot measure candidate A without it:
 
-T00 will put something here the moment it starts: it needs the user to run one install command
-on their own machine, and it waits for the answer rather than continuing around it.
+```
+brew install --cask openscad@snapshot
+```
+
+Not `--cask openscad`: that one is 2021.01 and disabled 2026-09-01 (see FINDINGS.md). Needed
+back: whether it completed, and what `openscad --version` prints. A refusal is also a decisive
+answer — it settles the spike on build123d-vs-nothing rather than leaving data missing.
