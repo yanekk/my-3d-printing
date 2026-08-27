@@ -6,11 +6,11 @@
 that touch the task you are picking up, and append yours there. It is where "verified by hand
 with the user" is written down. **Sixty words to a Notes cell here, forty to a finding there.**
 
-**Status:** T02 is implemented and awaiting review. `npm test` runs **54** tests green on a
-clean checkout with nothing installed — 33 of them new, covering binary and ASCII reading, the
-binary writer, and every malformed file the task doc names. Phase 2 continues at T03.
+**Status:** T02 is reviewed and done — two defects found and fixed. `npm test` runs **58**
+tests green on a clean checkout with nothing installed. Phase 2 continues at T03, whose first
+session should read the top three rows of `FINDINGS.md`.
 **Last updated:** 2026-08-27
-**Next `pir-work` will:** **review T02**.
+**Next `pir-work` will:** **implement T03** (mesh measurements).
 
 ## Tasks
 
@@ -21,7 +21,7 @@ done · ⛔ blocked, needs a human.
 |---|---|---|---|---|
 | T00 | Spike: choose the recipe language | — | ✅ | **OpenSCAD chosen** (user, 2026-08-27). Review re-ran all six §5.3 commands — all hold. Fixed: §7's speed range excluded a measured 0.39 s; §5.2 never got the Gatekeeper note §5.3 demands. One table row ("named constants") unfillable, `spike/` gone. |
 | T01 | Skeleton, `npm test`, purity-boundary test | — | ✅ | Review: sound, all three deviations approved. **Four defects fixed** — the boundary check globbed `*.js` and used `isFile()`, so `.mjs`, `.cjs`, symlinked modules and backtick specifiers in `core/` passed unread. Probed beyond the doc with planted real files: empty `core/`, subdirectories, `../shell` imports. **21 tests.** |
-| T02 | STL read and write | T01 | 🔍 | Binary + ASCII parse, binary write, 7 committed fixtures, **33 tests** (54 total). Deviation: generator is `tools/make-fixtures.mjs` — `node --test` runs everything under `test/`. Deviation: `detectFormat` calls an unparseable file `binary`, so truncation is named. Five mutations tried, all caught. |
+| T02 | STL read and write | T01 | ✅ | Review: sound, both deviations approved, fixtures regenerate byte-identical. **Two defects fixed** — every non-mesh file over 84 bytes earned `TRUNCATED` (`NOT_STL` was dead code); the writer's Infinity guard checked float64 and wrote float32, so `1e40` got written. Probed with recipes, HTML, gzip, `1e999`. **58 tests.** |
 | T03 | Mesh measurements | T02 | ⬜ | |
 | T04 | Solidity: watertight, boundary edges, winding | T03 | ⬜ | |
 | T05 | Overhangs, bands, bed contact, best orientation | T03 | ⬜ | Heaviest core task. |
@@ -39,7 +39,7 @@ done · ⛔ blocked, needs a human.
 one line per deviation from the task doc. The cell is the index; the account is the commit
 message.
 
-**Review queue:** **T02**.
+**Review queue:** *(empty — T03 is next to be built.)*
 
 ## Blocked on the user
 
