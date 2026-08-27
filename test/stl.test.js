@@ -382,3 +382,73 @@ test('a header padded with NULs and spaces reads back without them', () => {
   // Everything after the text really is zero padding, not leftover memory.
   assert.deepEqual([...bytes.subarray(7, 80)], new Array(73).fill(0));
 });
+
+// --- what the review found -----------------------------------------------------------------
+
+/** @param {() => unknown} fn @returns {Error} the error thrown, for asserting on its message */
+function caught(fn) {
+  try {
+    fn();
+  } catch (err) {
+    return err;
+  }
+  throw new assert.AssertionError({ message: 'expected a throw, and nothing was thrown' });
+}
+
+test('a text file that is not an ASCII STL is NOT_STL, not a truncated binary', () => {
+  // The realistic mistake in this project: an .scad recipe, or an error page saved to disk,
+  // handed to the command that wants a mesh. Reading bytes 81-84 of a recipe as a triangle
+  // count answers with "the header declares 744845417 triangles", which is true of the bytes
+  // and useless to whoever has to fix it. NOT_STL exists for exactly this file.
+  const wrong = [
+    '// bracket\nmodule bracket() {\n  cube([40, 30, 25]);\n}\nbracket();\n// padding to pass 84 bytes\n',
+    '<!doctype html><html><body><h1>404 Not Found</h1></body></html>\n'.padEnd(120, ' '),
+    'ERROR: Parser error in file "bracket.scad", line 12\n'.repeat(3),
+  ];
+  for (const text of wrong) {
+    assert.ok(text.length > 84, 'the point is a file long enough to be mistaken for a binary');
+    assertParseError(() => parseStl(asBytes(text)), 'NOT_STL');
+    assert.doesNotMatch(
+      caught(() => parseStl(asBytes(text))).message,
+      /triangle/,
+      'a file with no mesh in it must not be described in triangles',
+    );
+  }
+});
+
+test('a genuinely binary file that is not an STL is still TRUNCATED', () => {
+  // The boundary of the rule above: bytes that are not text cannot be told apart from a
+  // damaged mesh, and TRUNCATED naming both byte counts stays the most useful answer.
+  const blob = Uint8Array.from({ length: 300 }, (_, i) => (i * 37) % 256);
+  assertParseError(() => parseStl(blob), 'TRUNCATED');
+});
+
+test("the short-file complaint does not claim the file lacks 'solid' when it has it", () => {
+  // 'solid ' followed by control bytes: too short to be a binary, not text, so it lands on
+  // the short-file path — whose message must not assert something the file contradicts.
+  const bytes = Uint8Array.from([...asBytes('solid '), ...Array.from({ length: 14 }, (_, i) => i)]);
+  const err = caught(() => parseStl(bytes));
+  assert.equal(err.code, 'NOT_STL');
+  assert.match(err.message, /shorter than/);
+  assert.doesNotMatch(err.message, /solid/);
+});
+
+test('writeBinaryStl refuses a coordinate that float32 cannot hold', () => {
+  // 1e40 is an ordinary float64 and passes Number.isFinite, but setFloat32 stores it as
+  // Infinity — the exact file the NaN check exists to keep out, arriving by the back door.
+  assert.throws(() => writeBinaryStl({ positions: [0, 0, 0, 1, 0, 0, 0, 1, 1e40] }), RangeError);
+  assert.throws(
+    () => writeBinaryStl({ positions: Float64Array.from([0, 0, 0, 1, 0, 0, 0, 1, -1e39]) }),
+    RangeError,
+  );
+  assert.throws(
+    () => writeBinaryStl({ positions: new Float32Array(9), normals: [0, 0, 1e40] }),
+    RangeError,
+  );
+  // The largest float32 still goes through: the check is representability, not a size limit.
+  assert.equal(
+    parseStl(writeBinaryStl({ positions: [0, 0, 0, 1, 0, 0, 0, 1, 3.4028234663852886e38] }))
+      .positions[8],
+    3.4028234663852886e38,
+  );
+});

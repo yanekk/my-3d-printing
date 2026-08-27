@@ -112,10 +112,13 @@ function startsWithSolid(bytes) {
 }
 
 /**
+ * Whether the file is plausibly text at all, which is the tie-break the format detection
+ * rests on once the length arithmetic has said the file is not a well-formed binary.
+ *
  * @param {Uint8Array} bytes
  * @returns {boolean}
  */
-function looksLikeAsciiStl(bytes) {
+function looksLikeText(bytes) {
   if (bytes.length === 0) return false;
   const limit = Math.min(bytes.length, ASCII_SNIFF_BYTES);
   for (let at = 0; at < limit; at++) {
@@ -126,7 +129,15 @@ function looksLikeAsciiStl(bytes) {
     // 0x7e are allowed through, so a solid named in UTF-8 still reads as text.
     if ((byte < 0x20 && !(byte >= 0x09 && byte <= 0x0d)) || byte === 0x7f) return false;
   }
-  return startsWithSolid(bytes);
+  return true;
+}
+
+/**
+ * @param {Uint8Array} bytes
+ * @returns {boolean}
+ */
+function looksLikeAsciiStl(bytes) {
+  return looksLikeText(bytes) && startsWithSolid(bytes);
 }
 
 /**
@@ -175,10 +186,21 @@ function headerTextOf(bytes) {
  * @returns {Mesh}
  */
 function parseBinary(bytes) {
+  // Text that is not an ASCII STL is not a damaged binary one, and must not be reported as
+  // though the bytes were a mesh. A recipe, an error page or a log handed to the wrong
+  // command lands here, and reading its 81st to 84th bytes as a triangle count produces
+  // "the header declares 744845417 triangles" — true of the bytes, and no help at all.
+  if (looksLikeText(bytes) && !startsWithSolid(bytes)) {
+    throw new StlParseError(
+      `Not an STL file: the contents are text, but they do not begin with 'solid', so this is ` +
+        'neither an ASCII STL nor a binary one.',
+      'NOT_STL',
+    );
+  }
   if (bytes.length < BINARY_PREFIX) {
     throw new StlParseError(
       `Not an STL file: ${bytes.length} bytes is shorter than the ${BINARY_PREFIX}-byte header ` +
-        `of an empty binary STL, and the contents do not begin with 'solid'.`,
+        'and 4-byte triangle count that even an empty binary STL carries.',
       'NOT_STL',
     );
   }
@@ -348,9 +370,13 @@ function coordinatesOf(value, what) {
     throw new TypeError(`${what} must be a Float32Array or an array of numbers.`);
   }
   for (let at = 0; at < value.length; at++) {
-    if (!Number.isFinite(value[at])) {
+    // Math.fround, not Number.isFinite alone: an STL stores float32, and 1e40 is an ordinary
+    // float64 that becomes Infinity the moment setFloat32 writes it. Checking only the value
+    // handed in would let the writer produce exactly the file this check exists to prevent.
+    if (!Number.isFinite(Math.fround(value[at]))) {
       throw new RangeError(
-        `${what}[${at}] is ${value[at]}; an STL cannot carry NaN or Infinity as a coordinate.`,
+        `${what}[${at}] is ${value[at]}, which an STL cannot carry: a coordinate is stored as a ` +
+          '32-bit float, and NaN, Infinity and anything beyond ±3.4e38 have no representation.',
       );
     }
   }
