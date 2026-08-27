@@ -10,7 +10,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync, mkdirSync, rmSync, symlinkSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const CORE_DIR = fileURLToPath(new URL('../core', import.meta.url));
@@ -26,10 +26,14 @@ const BUILTIN_BARE = new Set([
 // Impurity that no import expresses: ambient state read straight out of the runtime.
 const FORBIDDEN_SUBSTRINGS = ['Date.now', 'new Date', 'Math.random', 'process.'];
 
+// Every extension Node will execute as a module. `.js` alone is a hole: a file named
+// `.mjs` or `.cjs` in core/ runs exactly the same and would never be read.
+const SOURCE_EXTENSIONS = ['.js', '.mjs', '.cjs'];
+
 // Module specifiers in every position that loads one: static import ... from '', bare side
-// effect import '', dynamic import(''), and require('').
+// effect import '', dynamic import(''), and require('') — in any of the three quotes.
 const SPECIFIER_PATTERN =
-  /(?:\bfrom\s*|\brequire\s*\(\s*|\bimport\s*\(\s*|(?:^|[\s;])import\s+)['"]([^'"]+)['"]/gm;
+  /(?:\bfrom\s*|\brequire\s*\(\s*|\bimport\s*\(\s*|(?:^|[\s;])import\s+)['"`]([^'"`]+)['"`]/gm;
 
 /**
  * @param {{path: string, text: string}[]} files
@@ -57,8 +61,12 @@ export function findViolations(files) {
 }
 
 /**
- * Every .js file under core/, read as text. Recursive, because a subdirectory of core/ is
- * still core/ and a check that only looks one level deep is a check with a hole in it.
+ * Every source file under core/, read as text. Recursive, because a subdirectory of core/
+ * is still core/ and a check that only looks one level deep is a check with a hole in it.
+ *
+ * `!isDirectory()` rather than `isFile()`: a symlink is neither, so `isFile()` would walk
+ * straight past a symlinked module. Reading one follows it, which is what we want — and a
+ * symlink pointing at a directory or at nothing throws here, loudly, rather than passing.
  *
  * @param {string} dir absolute path
  * @returns {{path: string, text: string}[]}
@@ -73,7 +81,10 @@ export function readCoreFiles(dir = CORE_DIR) {
     throw err;
   }
   return entries
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.js'))
+    .filter(
+      (entry) =>
+        !entry.isDirectory() && SOURCE_EXTENSIONS.some((ext) => entry.name.endsWith(ext)),
+    )
     .map((entry) => {
       const full = `${entry.parentPath ?? entry.path}/${entry.name}`;
       return { path: full, text: readFileSync(full, 'utf8') };
@@ -127,6 +138,43 @@ test('a real file importing node:fs in core/ fails the check', () => {
   assert.deepEqual(findViolations(readCoreFiles()), []);
 });
 
+test('every source extension in core/ is scanned, not just .js', () => {
+  // A file named .mjs or .cjs is executed by Node exactly like a .js one. If the glob misses
+  // it, core/ has a door in it that the test reports as a wall.
+  for (const [name, text] of [
+    ['__probe_mjs.tmp.mjs', "import fs from 'node:fs';\n"],
+    ['__probe_cjs.tmp.cjs', 'const t = Date.now();\n'],
+  ]) {
+    const probe = `${CORE_DIR}/${name}`;
+    try {
+      writeFileSync(probe, text);
+      const violations = findViolations(readCoreFiles());
+      assert.equal(violations.length, 1, `not scanned: ${name}`);
+      assert.match(violations[0].path, new RegExp(`${name.replace('.', '\\.')}$`));
+    } finally {
+      rmSync(probe, { force: true });
+    }
+  }
+  assert.deepEqual(findViolations(readCoreFiles()), []);
+});
+
+test('a symlinked module in core/ is scanned, not stepped over', () => {
+  // `isFile()` is false for a symlink, so the obvious filter walks past one silently.
+  const target = fileURLToPath(new URL('./__symlink_target.tmp', import.meta.url));
+  const link = `${CORE_DIR}/__probe_link.tmp.js`;
+  try {
+    writeFileSync(target, "import fs from 'node:fs';\nexport const x = fs;\n");
+    symlinkSync(target, link);
+    const violations = findViolations(readCoreFiles());
+    assert.equal(violations.length, 1);
+    assert.equal(violations[0].detail, 'node:fs');
+  } finally {
+    rmSync(link, { force: true });
+    rmSync(target, { force: true });
+  }
+  assert.deepEqual(findViolations(readCoreFiles()), []);
+});
+
 test('every shape of builtin import is caught', () => {
   const cases = [
     "import fs from 'node:fs';",
@@ -142,6 +190,8 @@ test('every shape of builtin import is caught', () => {
     "import { Worker } from 'worker_threads';",
     "import { pathToFileURL } from 'url';",
     "import { Readable } from 'stream';",
+    'const fs = require(`fs`);',
+    'const os = await import(`node:os`);',
   ];
   for (const text of cases) {
     const violations = findViolations([{ path: 'core/x.js', text }]);
