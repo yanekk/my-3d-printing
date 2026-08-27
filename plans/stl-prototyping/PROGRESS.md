@@ -6,13 +6,12 @@
 that touch the task you are picking up, and append yours there. It is where "verified by hand
 with the user" is written down. **Sixty words to a Notes cell here, forty to a finding there.**
 
-**Status:** T00 done and awaiting review. The recipe language is settled — **OpenSCAD**,
-recorded in [DESIGN.md](DESIGN.md) §5.3 and §7. Nothing else is built; T08's build pipeline is
-now unblocked, and so is T14.
+**Status:** T00 reviewed and closed. The recipe language is settled — **OpenSCAD**, and every
+command in [DESIGN.md](DESIGN.md) §5.3 was re-run and confirmed during the review. No code
+exists yet; Phase 1 starts now, and T08 and T14 are unblocked.
 **Last updated:** 2026-08-27
-**Next `pir-work` will:** review **T00** — the only 🔍 in the table. There is no code to review,
-so the review is of the written record: that `DESIGN.md` §5.3 matches what was measured, that
-`FINDINGS.md` carries the losing case as well as the winning one, and that `spike/` really is gone.
+**Next `pir-work` will:** implement **T01** — the skeleton, `npm test`, and the purity-boundary
+test. It is the lowest-numbered ⬜ and depends on nothing.
 
 ## Tasks
 
@@ -21,7 +20,7 @@ done · ⛔ blocked, needs a human.
 
 | # | Task | Depends on | State | Notes |
 |---|---|---|---|---|
-| T00 | Spike: choose the recipe language | — | 🔍 | **OpenSCAD chosen** (user, 2026-08-27) after three parts built both ways. `DESIGN.md §5.3` added: binary, install command, mandatory `--export-format binstl`, no STEP, headless PNG render. `spike/` deleted. No tests — this task produced a decision. |
+| T00 | Spike: choose the recipe language | — | ✅ | **OpenSCAD chosen** (user, 2026-08-27). Review re-ran all six §5.3 commands — all hold. Fixed: §7's speed range excluded a measured 0.39 s; §5.2 never got the Gatekeeper note §5.3 demands. One table row ("named constants") unfillable, `spike/` gone. |
 | T01 | Skeleton, `npm test`, purity-boundary test | — | ⬜ | Independent of T00. |
 | T02 | STL read and write | T01 | ⬜ | |
 | T03 | Mesh measurements | T02 | ⬜ | |
@@ -41,7 +40,7 @@ done · ⛔ blocked, needs a human.
 one line per deviation from the task doc. The cell is the index; the account is the commit
 message.
 
-**Review queue:** T00
+**Review queue:** *(empty)*
 
 ## Blocked on the user
 
