@@ -1,0 +1,157 @@
+// Generates the committed STL fixtures in test/fixtures/.
+//
+//   node tools/make-fixtures.mjs
+//
+// The output is committed and the tests read those bytes from disk. They are NOT regenerated
+// at test time: fixtures built during the run would mean the suite checks core/stl.js against
+// this script rather than against the format, and the two would agree on any shared
+// misunderstanding.
+//
+// For the same reason this file deliberately does not import core/stl.js. It writes the bytes
+// itself, from the specification, so the parser is tested against an independent writer.
+//
+// It lives in tools/ rather than test/fixtures/ (where tasks/T02-stl-io.md put it) because
+// `node --test` executes every .js/.mjs/.cjs file under test/, so a generator kept there would
+// rewrite the fixtures on every `npm test` — and silently repair a corrupted one.
+
+import { writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+const OUT = fileURLToPath(new URL('../test/fixtures/', import.meta.url));
+
+// --- the shapes -------------------------------------------------------------------------
+
+// A 2 mm cube with one corner at the origin. Every face is two triangles, wound
+// counter-clockwise seen from outside, so the right-hand rule gives the outward normal that
+// is also stored in the file. T04 will lean on that winding being correct.
+const S = 2;
+const CORNERS = {
+  o: [0, 0, 0], x: [S, 0, 0], xy: [S, S, 0], y: [0, S, 0],
+  z: [0, 0, S], xz: [S, 0, S], xyz: [S, S, S], yz: [0, S, S],
+};
+
+/** @param {[string,string,string]} names @param {number[]} normal */
+const face = (names, normal) => ({
+  n: normal,
+  v: names.flatMap((name) => CORNERS[name]),
+});
+
+const BOTTOM = [face(['o', 'xy', 'x'], [0, 0, -1]), face(['o', 'y', 'xy'], [0, 0, -1])];
+const TOP = [face(['z', 'xz', 'xyz'], [0, 0, 1]), face(['z', 'xyz', 'yz'], [0, 0, 1])];
+const FRONT = [face(['o', 'x', 'xz'], [0, -1, 0]), face(['o', 'xz', 'z'], [0, -1, 0])];
+const BACK = [face(['y', 'yz', 'xyz'], [0, 1, 0]), face(['y', 'xyz', 'xy'], [0, 1, 0])];
+const LEFT = [face(['o', 'z', 'yz'], [-1, 0, 0]), face(['o', 'yz', 'y'], [-1, 0, 0])];
+const RIGHT = [face(['x', 'xy', 'xyz'], [1, 0, 0]), face(['x', 'xyz', 'xz'], [1, 0, 0])];
+
+const CUBE = [...BOTTOM, ...TOP, ...FRONT, ...BACK, ...LEFT, ...RIGHT];
+
+// The same cube with the top face left off: 10 triangles, four boundary edges around the
+// opening. This is the fixture T04 needs to prove that "not watertight" is detected.
+const OPEN_BOX = [...BOTTOM, ...FRONT, ...BACK, ...LEFT, ...RIGHT];
+
+// One honest triangle and one whose three vertices are collinear, so its area is exactly
+// zero. Collinear rather than repeated-vertex, because a repeated vertex is the easy case
+// and every degenerate-detection bug this fixture exists to catch hides in the other one.
+const DEGENERATE = [
+  { n: [0, 0, 1], v: [0, 0, 0, 1, 0, 0, 0, 1, 0] },
+  { n: [0, 0, 0], v: [0, 0, 0, 1, 0, 0, 2, 0, 0] },
+];
+
+// --- the writers ------------------------------------------------------------------------
+
+const HEADER_BYTES = 80;
+const TRIANGLE_BYTES = 50;
+
+/**
+ * @param {string} header up to 80 bytes; the rest is zero-padded
+ * @param {{n: number[], v: number[]}[]} tris
+ * @returns {Uint8Array}
+ */
+function binaryStl(header, tris) {
+  const bytes = new Uint8Array(HEADER_BYTES + 4 + TRIANGLE_BYTES * tris.length);
+  const view = new DataView(bytes.buffer);
+  new TextEncoder().encodeInto(header, bytes.subarray(0, HEADER_BYTES));
+  view.setUint32(HEADER_BYTES, tris.length, true);
+  let at = HEADER_BYTES + 4;
+  for (const tri of tris) {
+    for (const value of [...tri.n, ...tri.v]) {
+      view.setFloat32(at, value, true);
+      at += 4;
+    }
+    view.setUint16(at, 0, true); // attribute byte count, unused
+    at += 2;
+  }
+  return bytes;
+}
+
+/**
+ * The shortest decimal spelling that reads back as the identical float32. Anything shorter
+ * would make the ASCII cube parse to different bits than the binary one, and the test that
+ * they are bit-identical is one of the few ways a rounding bug in the parser shows up at all.
+ *
+ * @param {number} value
+ * @returns {string}
+ */
+function f32(value) {
+  const exact = Math.fround(value);
+  for (let digits = 1; digits <= 9; digits++) {
+    const text = exact.toPrecision(digits);
+    if (Object.is(Math.fround(Number(text)), exact)) return String(Number(text));
+  }
+  return String(exact);
+}
+
+/**
+ * @param {string} name
+ * @param {{n: number[], v: number[]}[]} tris
+ * @returns {string}
+ */
+function asciiStl(name, tris) {
+  const lines = [`solid ${name}`];
+  for (const tri of tris) {
+    lines.push(`  facet normal ${tri.n.map(f32).join(' ')}`);
+    lines.push('    outer loop');
+    for (let corner = 0; corner < 3; corner++) {
+      lines.push(`      vertex ${tri.v.slice(corner * 3, corner * 3 + 3).map(f32).join(' ')}`);
+    }
+    lines.push('    endloop');
+    lines.push('  endfacet');
+  }
+  lines.push(`endsolid ${name}`);
+  return `${lines.join('\n')}\n`;
+}
+
+// --- the fixtures -----------------------------------------------------------------------
+
+/** @param {string} name @param {Uint8Array | string} contents */
+function emit(name, contents) {
+  const bytes = typeof contents === 'string' ? new TextEncoder().encode(contents) : contents;
+  writeFileSync(`${OUT}${name}`, bytes);
+  console.log(`${name}  ${bytes.length} bytes`);
+}
+
+emit('cube-binary.stl', binaryStl('cube 2mm binary fixture', CUBE));
+emit('cube-ascii.stl', asciiStl('cube', CUBE));
+
+// The headline trap. A perfectly ordinary binary STL whose 80-byte header happens to begin
+// with the text 'solid', which is what most binary writers produce. Sniffing the first five
+// bytes calls this ASCII and then fails to parse a file that is not broken at all.
+emit(
+  'binary-says-solid.stl',
+  binaryStl('solid cube — binary, despite how this header reads', CUBE),
+);
+
+emit('open-box.stl', binaryStl('open box: cube with no top', OPEN_BOX));
+emit('degenerate.stl', binaryStl('one good triangle, one of zero area', DEGENERATE));
+emit('empty.stl', binaryStl('empty: a valid header declaring no triangles', []));
+
+// Declares 12 triangles and carries 7. The header deliberately does not begin with 'solid',
+// so the file has no way to be mistaken for text and must be reported as a truncated binary
+// rather than as unreadable ASCII.
+emit(
+  'truncated.stl',
+  binaryStl('cut short: declares 12 triangles, holds 7', CUBE).slice(
+    0,
+    HEADER_BYTES + 4 + TRIANGLE_BYTES * 7,
+  ),
+);
