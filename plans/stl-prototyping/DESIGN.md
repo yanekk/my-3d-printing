@@ -175,16 +175,35 @@ threshold.
 | `severe` | 60° < a < 85° | Needs supports. |
 | `ceiling` | a ≥ 85° | Flat unsupported underside. Bridges if it spans between two walls; otherwise supports are mandatory. The mesh alone cannot distinguish the two cases, and the report must say so rather than guess. |
 
+**A face within `bandEdgeToleranceDeg` (0.01°) of a band edge is snapped onto that edge** and
+placed by the table above. An STL stores float32, so a face drawn at exactly 45° measures
+45.000003° about one time in twenty-five (FINDINGS.md, 2026-08-28) — and a 45° chamfer is the
+commonest feature on a printed part. Without the snap the report calls that chamfer "will show
+sag" at random and two exports of one model contradict each other. At 30°, 45° and 60° the edge
+belongs to the gentler band, so the snap rounds to the kind side; at 85° the table closes the
+edge upward into `ceiling`, which is the direction that matters there, because a flat underside
+has to be recognised as flat before it can be credited as bed contact. Decided by the user,
+2026-08-28.
+
 Also reported: total area per band, **bed contact area** (downward-facing triangles whose
 vertices all sit within 0.05 mm of the minimum Z — the first-layer footprint, which is what
 predicts whether a part stays stuck), and **the best of the 24 axis-aligned orientations** by
-total `steep`+`severe`+`ceiling` area. The orientation suggestion is advice, not an
-instruction: it is blind to cosmetic faces, layer-line strength and bed adhesion, and the
-report says so.
+total `steep`+`severe`+`ceiling` area **less the bed contact**.
+
+**Bed contact is never support area.** A flat bottom face points straight down and is
+geometrically identical to an unsupported ceiling; the only thing saving it is that it is
+resting on the plate. Counting it would make a plain cube report its own footprint as needing
+support, and — far worse — would make the orientation search prefer whichever way up gives the
+*smallest* footprint, advising the user to stand a flat plate on its edge. Decided by the user,
+2026-08-28, correcting an earlier version of this paragraph that said plain
+`steep`+`severe`+`ceiling`.
+
+The orientation suggestion is advice, not an instruction: it is blind to cosmetic faces,
+layer-line strength and bed adhesion, and the report says so.
 
 The 45° threshold and its neighbours are tuned for a direct-drive Ender-3 V3 KE and are
 **thresholds in one table in one module**, not scattered constants, so retuning them after a
-real print is a one-line change.
+real print is a one-line change. `core/machine.js` is that table.
 
 ### 2.6 The preview
 

@@ -226,3 +226,144 @@ emit(
 
 emit('flipped-face.stl', binaryStl('closed cube, one face wound backwards', FLIPPED_FACE));
 emit('near-miss.stl', binaryStl('cube with a 5e-4 mm seam between its halves', NEAR_MISS));
+
+// --- T05's shapes -----------------------------------------------------------------------
+//
+// The three overhang fixtures are all built from one construction, an extruded profile,
+// because the thing under test is the *direction* of each face and a prism gives exact,
+// hand-checkable normals: every wall is axis-aligned in Y, so the overhang angle of a wall
+// depends only on its 2-D edge and can be worked out on paper.
+
+/**
+ * A prism: a closed 2-D profile in the XZ plane, extruded along +Y from 0 to `depth`.
+ *
+ * `profile` is the boundary in **counter-clockwise** order seen with x right and z up, so the
+ * interior lies to the left of each step and the outward normal of a wall is the right-hand
+ * side of its direction: for an edge (dx, dz) that is (dz, 0, -dx).
+ *
+ * `capTriangles` triangulates the same boundary using **only** its own vertices. A midpoint
+ * introduced here would be a T-junction against the wall that shares that edge, and T04 would
+ * correctly report the result as not watertight — the mesh really would have a hole.
+ *
+ * @param {[number, number][]} profile
+ * @param {[number, number, number][]} capTriangles indices into `profile`
+ * @param {number} depth
+ */
+function prism(profile, capTriangles, depth) {
+  const at = ([x, z], y) => [x, y, z];
+  const tris = [];
+
+  for (let i = 0; i < profile.length; i++) {
+    const p = profile[i];
+    const q = profile[(i + 1) % profile.length];
+    const dx = q[0] - p[0];
+    const dz = q[1] - p[1];
+    const length = Math.hypot(dx, dz);
+    const normal = [dz / length, 0, -dx / length];
+    tris.push(...quad([at(p, 0), at(p, depth), at(q, depth), at(q, 0)], normal));
+  }
+
+  for (const [a, b, c] of capTriangles) {
+    // Reversed at y = depth: the same winding seen from the other side is the other normal.
+    tris.push({ n: [0, -1, 0], v: [...at(profile[a], 0), ...at(profile[b], 0), ...at(profile[c], 0)] });
+    const d = depth;
+    tris.push({ n: [0, 1, 0], v: [...at(profile[a], d), ...at(profile[c], d), ...at(profile[b], d)] });
+  }
+  return tris;
+}
+
+// A right prism whose one sloped face hangs at exactly 45 degrees from vertical — the band
+// boundary between `mild` ("fine on this printer") and `steep` ("will show sag"). The profile
+// is a right triangle with the hypotenuse running from top-left down to bottom-right, so that
+// hypotenuse is the *underside*: its outward normal is (-1, 0, -1)/sqrt(2), giving
+// -n.z = sin(45 deg) exactly.
+//
+// The coordinates are 0 and 10, both exact in float32, so this fixture measures 45 degrees as
+// closely as the format allows. It is the fixture for the boundary rule, not for the float
+// noise around it — the noisy cases are built in the test itself, where the offsets can be
+// chosen to the last bit.
+const WEDGE45 = prism([[0, 10], [10, 0], [10, 10]], [[0, 1, 2]], 10);
+
+// A vertical post with a ledge cantilevered off one side, 10 mm deep:
+//
+//        z=40  +--------+ . . . +
+//              |        :       |     the ledge, 20 wide
+//        z=30  |        +-------+     <- its underside is the unsupported ceiling
+//              |        |
+//              |  post  |
+//        z=0   +--------+
+//             x=0     x=10     x=30
+//
+// The underside of the ledge is 20 x 10 = 200 mm^2 of flat unsupported ceiling, which is the
+// number the test checks. The base is another 100 mm^2 of downward-facing area, but it sits on
+// the bed and is bed contact rather than an overhang — the two together are exactly the
+// distinction this fixture exists to force.
+//
+// The extra boundary vertex at (10, 40) is not decoration: without it the top wall would run
+// from x=30 to x=0 as one edge while the cap ends its boundary at x=10, and the mesh would
+// have a T-junction.
+const SHELF = prism(
+  [[0, 0], [10, 0], [10, 30], [30, 30], [30, 40], [10, 40], [0, 40]],
+  [[3, 4, 5], [2, 3, 5], [2, 5, 6], [0, 1, 2], [0, 2, 6]],
+  10,
+);
+
+// An icosphere of radius 10: 320 triangles with normals spread smoothly over every direction,
+// so every band gets a share and the band areas must add back up to the surface area. An
+// icosahedron subdivided twice, rather than a lat-long sphere, because a lat-long sphere piles
+// hundreds of slivers at the poles — exactly where the `ceiling` band is — and the band totals
+// would then be dominated by the worst-conditioned triangles in the mesh.
+function icosphere(radius, subdivisions) {
+  const t = (1 + Math.sqrt(5)) / 2;
+  const points = [
+    [-1, t, 0], [1, t, 0], [-1, -t, 0], [1, -t, 0],
+    [0, -1, t], [0, 1, t], [0, -1, -t], [0, 1, -t],
+    [t, 0, -1], [t, 0, 1], [-t, 0, -1], [-t, 0, 1],
+  ];
+  let faces = [
+    [0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11],
+    [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8],
+    [3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9],
+    [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1],
+  ].map((face) => face.map((index) => points[index]));
+
+  const onSphere = (v) => {
+    const length = Math.hypot(v[0], v[1], v[2]);
+    return [(v[0] / length) * radius, (v[1] / length) * radius, (v[2] / length) * radius];
+  };
+  const middle = (a, b) => onSphere([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]);
+
+  faces = faces.map((face) => face.map(onSphere));
+  for (let pass = 0; pass < subdivisions; pass++) {
+    const next = [];
+    for (const [a, b, c] of faces) {
+      const ab = middle(a, b);
+      const bc = middle(b, c);
+      const ca = middle(c, a);
+      next.push([a, ab, ca], [b, bc, ab], [c, ca, bc], [ab, bc, ca]);
+    }
+    faces = next;
+  }
+
+  return faces.map(([a, b, c]) => {
+    const e1 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+    const e2 = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+    const cross = [
+      e1[1] * e2[2] - e1[2] * e2[1],
+      e1[2] * e2[0] - e1[0] * e2[2],
+      e1[0] * e2[1] - e1[1] * e2[0],
+    ];
+    const length = Math.hypot(cross[0], cross[1], cross[2]);
+    // The face list above is asserted to be outward-wound, not assumed: a face whose normal
+    // points back at the centre is flipped here, so a wrong entry cannot quietly produce a
+    // sphere that is inside-out in one patch.
+    const outward = cross[0] * a[0] + cross[1] * a[1] + cross[2] * a[2] > 0;
+    const v = outward ? [...a, ...b, ...c] : [...a, ...c, ...b];
+    const sign = outward ? 1 : -1;
+    return { n: [(cross[0] / length) * sign, (cross[1] / length) * sign, (cross[2] / length) * sign], v };
+  });
+}
+
+emit('wedge45.stl', binaryStl('wedge: one face at exactly 45 degrees', WEDGE45));
+emit('shelf.stl', binaryStl('post with a cantilevered ledge: 200mm2 of ceiling', SHELF));
+emit('sphere.stl', binaryStl('icosphere r=10, 320 triangles', icosphere(10, 2)));
