@@ -6,12 +6,13 @@
 that touch the task you are picking up, and append yours there. It is where "verified by hand
 with the user" is written down. **Sixty words to a Notes cell here, forty to a finding there.**
 
-**Status:** T03 is reviewed and done — Phase 1's measurement layer is complete and T04, T05
-and T06 are all unblocked. `npm test` runs **90** tests green on a clean checkout with nothing
-installed. Two rules now wait on **T04** (`BAD_COORDINATE`, `DESIGN.md §2.10`) and on **T05**
-(what a triangle within float noise of a band edge is called — see `FINDINGS.md`).
+**Status:** T04 is implemented and awaiting review. `npm test` runs **117** tests green on a
+clean checkout with nothing installed. `BAD_COORDINATE` detection (`DESIGN.md §2.10`) is built
+and lands in `core/solidity.js` rather than the interface `tasks/T04` specifies. **One question
+is open for the user** — see below — and it changes at most one constant. T05 still waits on
+its own rule (a triangle within float noise of a band edge — see `FINDINGS.md`).
 **Last updated:** 2026-08-28
-**Next `pir-work` will:** **implement T04** — solidity: watertight, boundary edges, winding.
+**Next `pir-work` will:** **review T04**.
 
 ## Tasks
 
@@ -24,7 +25,7 @@ done · ⛔ blocked, needs a human.
 | T01 | Skeleton, `npm test`, purity-boundary test | — | ✅ | Review: sound, all three deviations approved. **Four defects fixed** — the boundary check globbed `*.js` and used `isFile()`, so `.mjs`, `.cjs`, symlinked modules and backtick specifiers in `core/` passed unread. Probed beyond the doc with planted real files: empty `core/`, subdirectories, `../shell` imports. **21 tests.** |
 | T02 | STL read and write | T01 | ✅ | Review: sound, both deviations approved, fixtures regenerate byte-identical. **Two defects fixed** — every non-mesh file over 84 bytes earned `TRUNCATED` (`NOT_STL` was dead code); the writer's Infinity guard checked float64 and wrote float32, so `1e40` got written. Probed with recipes, HTML, gzip, `1e999`. **58 tests.** |
 | T03 | Mesh measurements | T02 | ✅ | Review: **sound**, both deviations approved under stress. Volume/area/centroid match an independent decomposition on a 320-triangle icosphere to **2.7e-15**; 20 fresh mutations planted, all 20 caught; the centroid guard never misfired. **No defect fixed** — one comment corrected, three findings logged: `triangleAreas` overflows to `Infinity` above 2.6e19 mm (T04), and an exact 45° chamfer can land in the wrong band (T05). |
-| T04 | Solidity: watertight, boundary edges, winding | T03 | ⬜ | |
+| T04 | Solidity: watertight, boundary edges, winding | T03 | 🔍 | `core/solidity.js`, **27 tests** (117 total); 16 planted mutations, all caught. Fixtures `flipped-face.stl`, `near-miss.stl` added; the other eight regenerate byte-identical. **Four deviations** — weld is distance-based, not the doc's quantised key; added `badCoordinateCount` and `outOfRangeCoordinateCount`; `degenerate.stl` is *not* watertight, the doc is wrong. |
 | T05 | Overhangs, bands, bed contact, best orientation | T03 | ⬜ | Heaviest core task. |
 | T06 | Recipe header, build-volume fit, declared vs measured | T03 | ⬜ | |
 | T07 | The report object and its plain-text rendering | T04, T05, T06 | ⬜ | The decision function. |
@@ -40,19 +41,26 @@ done · ⛔ blocked, needs a human.
 one line per deviation from the task doc. The cell is the index; the account is the commit
 message.
 
-**Review queue:** *(empty — T04 is next, and it is an implementation.)*
+**Review queue:** **T04**.
 
 ## Blocked on the user
 
-*(Nothing — a good state.)*
+**One question, asked 2026-08-28, answer not yet in. It does not block the review of T04.**
 
-T00's two questions are both answered and written down: the OpenSCAD install was run and
-verified by hand on 2026-08-27, and the language decision came back **OpenSCAD** the same day.
-The broken-coordinate question T02 left open was answered on 2026-08-28 — report it, name the
-triangle — and is now `DESIGN.md §2.10`.
+T03's review left it and `PROGRESS` assigned it here: **what the report says about a coordinate
+that is a real number but absurdly large.** T04 now counts those triangles in
+`outOfRangeCoordinateCount`, separately from `BAD_COORDINATE`, with the line drawn where the
+weld grid runs out of integers — `weldTolerance * 2^53`, about 900 000 km at the default, and
+comfortably below the ~1.3e19 mm where a triangle's area stops fitting in float32 (the hole T03
+recorded). The options put to the user were: **(A)** fold it into `BAD_COORDINATE`; **(B)** its
+own finding code, which is what is built and what was recommended; **(C)** flag anything over
+about ten metres instead. A, B and C differ by one constant and by T07's wording — none of them
+invalidates the code or the tests.
 
-Nothing blocks a session today, but T03's review left **two questions the user will have to
-settle when the tasks that own them come up**, both recorded in `FINDINGS.md`: what the report
-says about a coordinate that is a real number but absurdly large (**T04**), and what a
-triangle sitting within float noise of an overhang band edge is called (**T05**). Neither
-stops T04 starting.
+Everything else is answered and written down: the OpenSCAD install was verified by hand on
+2026-08-27, the language decision came back **OpenSCAD** the same day, and the broken-coordinate
+question T02 left open was answered on 2026-08-28 — report it, name the triangle — and is now
+`DESIGN.md §2.10`.
+
+**T05 still carries its own open rule**, recorded in `FINDINGS.md`: what a triangle sitting
+within float noise of an overhang band edge is called. It does not stop T04's review.

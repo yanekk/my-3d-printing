@@ -86,6 +86,44 @@ const TETRAHEDRON = [
   tetFace(['a', 'b', 'c'], [R3, R3, -R3]), //  opposite d
 ];
 
+// The same cube with a single triangle wound backwards, its stored normal flipped with it —
+// which is what a genuinely inside-out face looks like in a file. The mesh stays closed: every
+// edge is still shared by exactly two triangles, and only the direction of travel disagrees, on
+// the three edges of that one face. That is why T04 checks winding separately from
+// watertightness; neither check finds this on its own.
+const flip = (tri) => ({
+  n: tri.n.map((component) => -component),
+  v: [...tri.v.slice(6, 9), ...tri.v.slice(3, 6), ...tri.v.slice(0, 3)],
+});
+
+// Index 2 is the first triangle of the top face: CUBE is [...BOTTOM, ...TOP, ...].
+const FLIPPED_FACE = CUBE.map((tri, index) => (index === 2 ? flip(tri) : tri));
+
+// A cube whose two halves do not quite meet. The side walls are cut at z = 1 and the upper
+// half is lifted by 5e-4 mm, leaving a hairline seam all the way round.
+//
+// 5e-4 sits deliberately between T04's two weld tolerances — five times the default 1e-4 and
+// half the coarse 1e-3 — so the identical mesh is open at one and closed at the other. It is
+// the fixture for the retry rule, and it is what a real CAD seam looks like: a slicer would
+// print this without complaint and a strict edge count calls it broken.
+const SEAM_GAP = 5e-4;
+
+/** Two triangles for a quad, given in order around its face. @param {number[][]} corners */
+const quad = (corners, normal) => [
+  { n: normal, v: [...corners[0], ...corners[1], ...corners[2]] },
+  { n: normal, v: [...corners[0], ...corners[2], ...corners[3]] },
+];
+
+/** The four side walls of the cube between two heights, wound outward. */
+const walls = (low, high) => [
+  quad([[0, 0, low], [S, 0, low], [S, 0, high], [0, 0, high]], [0, -1, 0]), // front, y = 0
+  quad([[S, 0, low], [S, S, low], [S, S, high], [S, 0, high]], [1, 0, 0]), //  right, x = S
+  quad([[S, S, low], [0, S, low], [0, S, high], [S, S, high]], [0, 1, 0]), //  back,  y = S
+  quad([[0, S, low], [0, 0, low], [0, 0, high], [0, S, high]], [-1, 0, 0]), // left,  x = 0
+].flat();
+
+const NEAR_MISS = [...BOTTOM, ...walls(0, 1), ...walls(1 + SEAM_GAP, S), ...TOP];
+
 // --- the writers ------------------------------------------------------------------------
 
 const HEADER_BYTES = 80;
@@ -185,3 +223,6 @@ emit(
     HEADER_BYTES + 4 + TRIANGLE_BYTES * 7,
   ),
 );
+
+emit('flipped-face.stl', binaryStl('closed cube, one face wound backwards', FLIPPED_FACE));
+emit('near-miss.stl', binaryStl('cube with a 5e-4 mm seam between its halves', NEAR_MISS));
