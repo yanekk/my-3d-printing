@@ -6,11 +6,12 @@
 that touch the task you are picking up, and append yours there. It is where "verified by hand
 with the user" is written down. **Sixty words to a Notes cell here, forty to a finding there.**
 
-**Status:** T03 is built and awaiting review. `npm test` runs **90** tests green on a clean
-checkout with nothing installed. One user decision landed today and is now a `DESIGN.md §2.10`
-rule that **T04 must implement**: a broken coordinate is reported, not refused.
+**Status:** T03 is reviewed and done — Phase 1's measurement layer is complete and T04, T05
+and T06 are all unblocked. `npm test` runs **90** tests green on a clean checkout with nothing
+installed. Two rules now wait on **T04** (`BAD_COORDINATE`, `DESIGN.md §2.10`) and on **T05**
+(what a triangle within float noise of a band edge is called — see `FINDINGS.md`).
 **Last updated:** 2026-08-28
-**Next `pir-work` will:** **review T03**.
+**Next `pir-work` will:** **implement T04** — solidity: watertight, boundary edges, winding.
 
 ## Tasks
 
@@ -22,7 +23,7 @@ done · ⛔ blocked, needs a human.
 | T00 | Spike: choose the recipe language | — | ✅ | **OpenSCAD chosen** (user, 2026-08-27). Review re-ran all six §5.3 commands — all hold. Fixed: §7's speed range excluded a measured 0.39 s; §5.2 never got the Gatekeeper note §5.3 demands. One table row ("named constants") unfillable, `spike/` gone. |
 | T01 | Skeleton, `npm test`, purity-boundary test | — | ✅ | Review: sound, all three deviations approved. **Four defects fixed** — the boundary check globbed `*.js` and used `isFile()`, so `.mjs`, `.cjs`, symlinked modules and backtick specifiers in `core/` passed unread. Probed beyond the doc with planted real files: empty `core/`, subdirectories, `../shell` imports. **21 tests.** |
 | T02 | STL read and write | T01 | ✅ | Review: sound, both deviations approved, fixtures regenerate byte-identical. **Two defects fixed** — every non-mesh file over 84 bytes earned `TRUNCATED` (`NOT_STL` was dead code); the writer's Infinity guard checked float64 and wrote float32, so `1e40` got written. Probed with recipes, HTML, gzip, `1e999`. **58 tests.** |
-| T03 | Mesh measurements | T02 | 🔍 | Built `core/mesh.js` + tetrahedron fixture; **90 tests** (29 new). Deviations: imports nothing (nothing in `stl.js` is needed); `centroid` needed an unspecified fallback for a zero-volume mesh — area-weighted, guarded by the bounding box. 15 mutations planted, all caught. |
+| T03 | Mesh measurements | T02 | ✅ | Review: **sound**, both deviations approved under stress. Volume/area/centroid match an independent decomposition on a 320-triangle icosphere to **2.7e-15**; 20 fresh mutations planted, all 20 caught; the centroid guard never misfired. **No defect fixed** — one comment corrected, three findings logged: `triangleAreas` overflows to `Infinity` above 2.6e19 mm (T04), and an exact 45° chamfer can land in the wrong band (T05). |
 | T04 | Solidity: watertight, boundary edges, winding | T03 | ⬜ | |
 | T05 | Overhangs, bands, bed contact, best orientation | T03 | ⬜ | Heaviest core task. |
 | T06 | Recipe header, build-volume fit, declared vs measured | T03 | ⬜ | |
@@ -39,7 +40,7 @@ done · ⛔ blocked, needs a human.
 one line per deviation from the task doc. The cell is the index; the account is the commit
 message.
 
-**Review queue:** **T03** — mesh measurements.
+**Review queue:** *(empty — T04 is next, and it is an implementation.)*
 
 ## Blocked on the user
 
@@ -48,4 +49,10 @@ message.
 T00's two questions are both answered and written down: the OpenSCAD install was run and
 verified by hand on 2026-08-27, and the language decision came back **OpenSCAD** the same day.
 The broken-coordinate question T02 left open was answered on 2026-08-28 — report it, name the
-triangle — and is now `DESIGN.md §2.10` plus the top row of `FINDINGS.md`.
+triangle — and is now `DESIGN.md §2.10`.
+
+Nothing blocks a session today, but T03's review left **two questions the user will have to
+settle when the tasks that own them come up**, both recorded in `FINDINGS.md`: what the report
+says about a coordinate that is a real number but absurdly large (**T04**), and what a
+triangle sitting within float noise of an overhang band edge is called (**T05**). Neither
+stops T04 starting.
