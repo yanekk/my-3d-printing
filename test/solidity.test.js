@@ -320,6 +320,61 @@ test('a coordinate too large for the weld grid is counted apart from a broken on
   assert.equal(solidity.watertight, true);
 });
 
+test('the out-of-range threshold sits exactly where DESIGN.md says it does', () => {
+  // DESIGN.md §2.10: the line is `weldTolerance * 2^53` — 900 719 925 474 mm at the default,
+  // about 900 000 km. Pinned from both sides, because the threshold is a number the user's
+  // error message rests on and nothing else in the suite would notice it moving.
+  const limit = 1e-4 * 2 ** 53;
+  const at = (coordinate) => {
+    // Float64Array: a Float32Array would round the coordinate away from the threshold before
+    // the module ever saw it.
+    const mesh = new Float64Array(CUBE.length + 9);
+    mesh.set(CUBE, 0);
+    mesh.set([0, 0, 0, 1, 0, 0, coordinate, 1, 0], CUBE.length);
+    return analyseSolidity(mesh).outOfRangeCoordinateCount;
+  };
+  assert.equal(at(limit * 0.999), 0, 'just inside the limit is an ordinary coordinate');
+  assert.equal(at(limit), 0, 'the limit itself is still weldable');
+  assert.equal(at(limit * 1.001), 1, 'just outside it, the grid can no longer address it');
+  assert.equal(at(-limit * 1.001), 1, 'and the same going the other way');
+});
+
+test('the coarse retry does not make an out-of-range triangle stop being out of range', () => {
+  // The retry welds at 1e-3, where `tolerance * 2^53` is ten times larger — so a coordinate
+  // between the two limits used to be out of range on a clean mesh and in range on the same
+  // mesh with an unrelated seam somewhere else, purely because the seam triggered the retry.
+  // COORDINATE_OUT_OF_RANGE is a stable code the user acts on; it must not depend on that.
+  const scale = 5e12; // above 1e-4 * 2^53, below 1e-3 * 2^53
+  const corners = [
+    [0, 0, 0],
+    [scale, 0, 0],
+    [0, scale, 0],
+    [0, 0, scale],
+  ];
+  // A closed tetrahedron, so it cannot open the mesh once it is welded in — without that, the
+  // retry would fail for the wrong reason and the bug would hide.
+  const tetrahedron = [[0, 2, 1], [0, 1, 3], [0, 3, 2], [1, 2, 3]]
+    .flatMap((face) => face.flatMap((corner) => corners[corner]));
+
+  const withHugePart = (base) => {
+    const mesh = new Float64Array(base.length + tetrahedron.length);
+    mesh.set(base, 0);
+    mesh.set(tetrahedron, base.length);
+    return analyseSolidity(mesh);
+  };
+
+  // NEAR_MISS closes only at 1e-3, so this mesh is the one the retry rescues.
+  const retried = withHugePart(NEAR_MISS);
+  assert.equal(retried.weldToleranceUsed, 1e-3, 'the retry must actually have won, or this proves nothing');
+  assert.equal(retried.outOfRangeCoordinateCount, 4);
+  assert.deepEqual(retried.sampleOutOfRangeTriangles.length, 4);
+
+  // The identical part on a mesh with no seam, where no retry happens: the same answer.
+  const direct = withHugePart(CUBE);
+  assert.equal(direct.weldToleranceUsed, 1e-4);
+  assert.equal(direct.outOfRangeCoordinateCount, 4);
+});
+
 test('an ordinary large part is not out of range', () => {
   // The threshold has to sit far past anything a person could mean. A 400 000 mm coordinate —
   // the far end of the mesh core/mesh.js is tested against — is ordinary as far as this is

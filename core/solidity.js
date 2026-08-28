@@ -110,11 +110,15 @@ function requirePositions(positions) {
  * overwhelmingly common case: a well-formed mesh repeats each vertex bit for bit, and every
  * repeat lands in the cell its first occurrence claimed.
  *
+ * `maxCoordinate` is passed in rather than derived from `tolerance`, because the retry runs at
+ * a coarser tolerance and the range verdict must not move with it. See `analyseSolidity`.
+ *
  * @param {ArrayLike<number>} positions
  * @param {number} tolerance
+ * @param {number} maxCoordinate largest weldable magnitude, fixed by the caller's tolerance
  * @returns {{ids: Int32Array, x: number[], y: number[], z: number[]}}
  */
-function weld(positions, tolerance) {
+function weld(positions, tolerance, maxCoordinate) {
   const vertexCount = positions.length / 3;
   const ids = new Int32Array(vertexCount).fill(-1);
   /** @type {Map<string, number[]>} */
@@ -123,9 +127,6 @@ function weld(positions, tolerance) {
   /** @type {number[]} */ const y = [];
   /** @type {number[]} */ const z = [];
 
-  // Beyond this, `coordinate / tolerance` stops producing distinct integers and the grid
-  // silently folds distant points onto the same cell.
-  const maxCoordinate = tolerance * 2 ** 53;
   const squaredTolerance = tolerance * tolerance;
 
   for (let vertex = 0; vertex < vertexCount; vertex++) {
@@ -202,12 +203,13 @@ function searchCell(cells, key, px, py, pz, x, y, z, squaredTolerance) {
  *
  * @param {ArrayLike<number>} positions
  * @param {number} tolerance
+ * @param {number} maxCoordinate largest weldable magnitude, fixed by the caller's tolerance
  * @param {number} volume the signed volume, which does not depend on the tolerance
  * @returns {Solidity}
  */
-function analyseAtTolerance(positions, tolerance, volume) {
+function analyseAtTolerance(positions, tolerance, maxCoordinate, volume) {
   const triangleCount = positions.length / COORDS_PER_TRIANGLE;
-  const { ids, x, y, z } = weld(positions, tolerance);
+  const { ids, x, y, z } = weld(positions, tolerance, maxCoordinate);
 
   let badCoordinateCount = 0;
   let outOfRangeCoordinateCount = 0;
@@ -381,11 +383,20 @@ export function analyseSolidity(positions, opts = {}) {
   // what `watertight` is here to tell the caller.
   const volume = signedVolume(positions);
 
-  const fine = analyseAtTolerance(positions, weldTolerance, volume);
+  // Beyond this, `coordinate / weldTolerance` stops producing distinct integers and the cell
+  // grid silently folds distant points together. Computed once, from the tolerance the *caller*
+  // asked for, and reused by the coarse retry — DESIGN.md §2.10 states the threshold as
+  // `weldTolerance * 2^53`, and COORDINATE_OUT_OF_RANGE is a stable error code the user acts
+  // on. Deriving it per pass instead made the error come and go: a 5e12 mm part earned it on a
+  // clean mesh and earned nothing on the same mesh with an unrelated 5e-4 mm seam elsewhere,
+  // because that seam triggered the retry and 1e-3 * 2^53 happens to sit above 5e12.
+  const maxCoordinate = weldTolerance * 2 ** 53;
+
+  const fine = analyseAtTolerance(positions, weldTolerance, maxCoordinate, volume);
   if (fine.watertight || positions.length === 0 || weldTolerance >= COARSE_WELD_TOLERANCE) {
     return fine;
   }
 
-  const coarse = analyseAtTolerance(positions, COARSE_WELD_TOLERANCE, volume);
+  const coarse = analyseAtTolerance(positions, COARSE_WELD_TOLERANCE, maxCoordinate, volume);
   return coarse.watertight ? coarse : fine;
 }
