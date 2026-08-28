@@ -6,14 +6,15 @@
 that touch the task you are picking up, and append yours there. It is where "verified by hand
 with the user" is written down. **Sixty words to a Notes cell here, forty to a finding there.**
 
-**Status:** T04 is implemented and awaiting review. `npm test` runs **117** tests green on a
-clean checkout with nothing installed. Both broken-coordinate rules are now settled and built:
-`BAD_COORDINATE` and `COORDINATE_OUT_OF_RANGE` (user, 2026-08-28), both `DESIGN.md §2.10`, both
-detected in `core/solidity.js` rather than in the interface `tasks/T04` specifies. **T07 must
-add `COORDINATE_OUT_OF_RANGE` to its findings table**, which does not list it. T05 still waits
-on its own rule (a triangle within float noise of a band edge — see `FINDINGS.md`).
+**Status:** Phase 1 has three tasks left. T04 is reviewed and done; `npm test` runs **119**
+tests green on a clean checkout with nothing installed. Both broken-coordinate rules are
+settled and built: `BAD_COORDINATE` and `COORDINATE_OUT_OF_RANGE` (user, 2026-08-28), both
+`DESIGN.md §2.10`, both detected in `core/solidity.js`. **T07 must add
+`COORDINATE_OUT_OF_RANGE` to its findings table**, which does not list it. T05 still waits on
+its own rule (a triangle within float noise of a band edge — see `FINDINGS.md`), and the
+session that picks it up should raise that with the user first.
 **Last updated:** 2026-08-28
-**Next `pir-work` will:** **review T04**.
+**Next `pir-work` will:** **implement T05** — overhangs, bands, bed contact, best orientation.
 
 ## Tasks
 
@@ -26,7 +27,7 @@ done · ⛔ blocked, needs a human.
 | T01 | Skeleton, `npm test`, purity-boundary test | — | ✅ | Review: sound, all three deviations approved. **Four defects fixed** — the boundary check globbed `*.js` and used `isFile()`, so `.mjs`, `.cjs`, symlinked modules and backtick specifiers in `core/` passed unread. Probed beyond the doc with planted real files: empty `core/`, subdirectories, `../shell` imports. **21 tests.** |
 | T02 | STL read and write | T01 | ✅ | Review: sound, both deviations approved, fixtures regenerate byte-identical. **Two defects fixed** — every non-mesh file over 84 bytes earned `TRUNCATED` (`NOT_STL` was dead code); the writer's Infinity guard checked float64 and wrote float32, so `1e40` got written. Probed with recipes, HTML, gzip, `1e999`. **58 tests.** |
 | T03 | Mesh measurements | T02 | ✅ | Review: **sound**, both deviations approved under stress. Volume/area/centroid match an independent decomposition on a 320-triangle icosphere to **2.7e-15**; 20 fresh mutations planted, all 20 caught; the centroid guard never misfired. **No defect fixed** — one comment corrected, three findings logged: `triangleAreas` overflows to `Infinity` above 2.6e19 mm (T04), and an exact 45° chamfer can land in the wrong band (T05). |
-| T04 | Solidity: watertight, boundary edges, winding | T03 | 🔍 | `core/solidity.js`, **27 tests** (117 total); 16 planted mutations, all caught. Fixtures `flipped-face.stl`, `near-miss.stl` added; the other eight regenerate byte-identical. **Four deviations** — weld is distance-based, not the doc's quantised key; added `badCoordinateCount` and `outOfRangeCoordinateCount`; `degenerate.stl` is *not* watertight, the doc is wrong. |
+| T04 | Solidity: watertight, boundary edges, winding | T03 | ✅ | Review: **sound**, all four deviations approved — the distance weld especially, which the doc's quantised key would have broken. **One defect fixed**: `COORDINATE_OUT_OF_RANGE` vanished whenever the 1e-3 retry ran, because the threshold moved with the pass; now pinned to the caller's tolerance. 19 fresh mutations, 16 caught, 2 equivalent, 1 gap (the threshold) closed. Probed past the doc: 4M-triangle cost, chained welds, `Float64Array`, a sub-tolerance part. **119 tests.** |
 | T05 | Overhangs, bands, bed contact, best orientation | T03 | ⬜ | Heaviest core task. |
 | T06 | Recipe header, build-volume fit, declared vs measured | T03 | ⬜ | |
 | T07 | The report object and its plain-text rendering | T04, T05, T06 | ⬜ | The decision function. |
@@ -42,7 +43,7 @@ done · ⛔ blocked, needs a human.
 one line per deviation from the task doc. The cell is the index; the account is the commit
 message.
 
-**Review queue:** **T04**.
+**Review queue:** *(empty — T05 is next, and it is an implementation.)*
 
 ## Blocked on the user
 
@@ -56,5 +57,5 @@ code**, `COORDINATE_OUT_OF_RANGE`, chosen over folding it into `BAD_COORDINATE` 
 ten-metre threshold. Both are now rows in `DESIGN.md §2.10`, and T04 implements both.
 
 **T05 still carries its own open rule**, recorded in `FINDINGS.md`: what a triangle sitting
-within float noise of an overhang band edge is called. It does not stop T04's review, and the
-session that picks up T05 should raise it first.
+within float noise of an overhang band edge is called. T05 is the next task, so the session
+that picks it up must raise this with the user before writing the band logic.
