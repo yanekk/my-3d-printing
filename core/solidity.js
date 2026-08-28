@@ -26,8 +26,12 @@
 //     integers to address it: |c| > weldTolerance * 2^53, about 900 000 km at the default
 //     tolerance. Past that, cell indices stop being distinct and "the same point" has no
 //     meaning. This is also, and not by coincidence, well below the point where a triangle's
-//     area stops fitting in float32 (about 1.3e19 mm) — the hole T03 left open. See
-//     FINDINGS.md.
+//     area stops fitting in float32 (about 1.3e19 mm) — the hole T03 left open.
+//
+//     DESIGN.md §2.10 (user decision, 2026-08-28): this gets its own error code,
+//     COORDINATE_OUT_OF_RANGE, rather than being folded into BAD_COORDINATE, because it is a
+//     different mistake with a different fix — a runaway scale in a recipe, not a division by
+//     zero — and "not a real number" is the wrong sentence to say about a real number.
 //   * **Degenerate** — zero area, or two corners that weld together. It contributes edges
 //     that pair with nothing, so leaving it in would make every mesh containing one look
 //     non-watertight. Counted, and excluded before anything else is measured.

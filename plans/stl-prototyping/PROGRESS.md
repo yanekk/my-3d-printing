@@ -7,10 +7,11 @@ that touch the task you are picking up, and append yours there. It is where "ver
 with the user" is written down. **Sixty words to a Notes cell here, forty to a finding there.**
 
 **Status:** T04 is implemented and awaiting review. `npm test` runs **117** tests green on a
-clean checkout with nothing installed. `BAD_COORDINATE` detection (`DESIGN.md §2.10`) is built
-and lands in `core/solidity.js` rather than the interface `tasks/T04` specifies. **One question
-is open for the user** — see below — and it changes at most one constant. T05 still waits on
-its own rule (a triangle within float noise of a band edge — see `FINDINGS.md`).
+clean checkout with nothing installed. Both broken-coordinate rules are now settled and built:
+`BAD_COORDINATE` and `COORDINATE_OUT_OF_RANGE` (user, 2026-08-28), both `DESIGN.md §2.10`, both
+detected in `core/solidity.js` rather than in the interface `tasks/T04` specifies. **T07 must
+add `COORDINATE_OUT_OF_RANGE` to its findings table**, which does not list it. T05 still waits
+on its own rule (a triangle within float noise of a band edge — see `FINDINGS.md`).
 **Last updated:** 2026-08-28
 **Next `pir-work` will:** **review T04**.
 
@@ -45,22 +46,15 @@ message.
 
 ## Blocked on the user
 
-**One question, asked 2026-08-28, answer not yet in. It does not block the review of T04.**
+*(Nothing — a good state.)*
 
-T03's review left it and `PROGRESS` assigned it here: **what the report says about a coordinate
-that is a real number but absurdly large.** T04 now counts those triangles in
-`outOfRangeCoordinateCount`, separately from `BAD_COORDINATE`, with the line drawn where the
-weld grid runs out of integers — `weldTolerance * 2^53`, about 900 000 km at the default, and
-comfortably below the ~1.3e19 mm where a triangle's area stops fitting in float32 (the hole T03
-recorded). The options put to the user were: **(A)** fold it into `BAD_COORDINATE`; **(B)** its
-own finding code, which is what is built and what was recommended; **(C)** flag anything over
-about ten metres instead. A, B and C differ by one constant and by T07's wording — none of them
-invalidates the code or the tests.
-
-Everything else is answered and written down: the OpenSCAD install was verified by hand on
-2026-08-27, the language decision came back **OpenSCAD** the same day, and the broken-coordinate
-question T02 left open was answered on 2026-08-28 — report it, name the triangle — and is now
-`DESIGN.md §2.10`.
+Every question this plan has raised is answered and written down. The OpenSCAD install was
+verified by hand on 2026-08-27 and the language decision came back **OpenSCAD** the same day.
+The broken-coordinate question T02 left open was answered on 2026-08-28 — report it, name the
+triangle. T03's absurdly-large-coordinate question was answered the same day: **its own error
+code**, `COORDINATE_OUT_OF_RANGE`, chosen over folding it into `BAD_COORDINATE` and over a
+ten-metre threshold. Both are now rows in `DESIGN.md §2.10`, and T04 implements both.
 
 **T05 still carries its own open rule**, recorded in `FINDINGS.md`: what a triangle sitting
-within float noise of an overhang band edge is called. It does not stop T04's review.
+within float noise of an overhang band edge is called. It does not stop T04's review, and the
+session that picks up T05 should raise it first.
