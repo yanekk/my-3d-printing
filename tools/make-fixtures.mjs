@@ -57,6 +57,35 @@ const DEGENERATE = [
   { n: [0, 0, 0], v: [0, 0, 0, 1, 0, 0, 2, 0, 0] },
 ];
 
+// A regular tetrahedron of edge 10, centred on the origin. It exists because a cube is a bad
+// volume fixture: 8 mm^3 is what a 2 mm cube gives under the correct formula and under several
+// wrong ones, and the cube's axis-aligned faces hide sign and cross-product mistakes entirely.
+// This solid shares no such coincidence — volume 1000/(6*sqrt(2)) = 117.851..., surface area
+// sqrt(3)*100 = 173.205... — and not one of its faces is axis-aligned.
+//
+// The four vertices are alternate corners of a cube, which is the construction that makes them
+// exact ratios of one another; the edge of that arrangement is 2*sqrt(2), so scaling by
+// 10/(2*sqrt(2)) gives edge 10. Windings are chosen so the right-hand rule points away from
+// the centre, i.e. outward, and the stored normals are the exact +/-1/sqrt(3) triples.
+const K = 10 / (2 * Math.SQRT2);
+const T = {
+  a: [K, K, K],
+  b: [K, -K, -K],
+  c: [-K, K, -K],
+  d: [-K, -K, K],
+};
+const R3 = 1 / Math.sqrt(3);
+
+/** @param {[string,string,string]} names @param {number[]} normal */
+const tetFace = (names, normal) => ({ n: normal, v: names.flatMap((name) => T[name]) });
+
+const TETRAHEDRON = [
+  tetFace(['b', 'd', 'c'], [-R3, -R3, -R3]), // the face opposite a
+  tetFace(['a', 'c', 'd'], [-R3, R3, R3]), //  opposite b
+  tetFace(['a', 'd', 'b'], [R3, -R3, R3]), //  opposite c
+  tetFace(['a', 'b', 'c'], [R3, R3, -R3]), //  opposite d
+];
+
 // --- the writers ------------------------------------------------------------------------
 
 const HEADER_BYTES = 80;
@@ -141,6 +170,7 @@ emit(
   binaryStl('solid cube — binary, despite how this header reads', CUBE),
 );
 
+emit('tetrahedron.stl', binaryStl('regular tetrahedron, edge 10mm', TETRAHEDRON));
 emit('open-box.stl', binaryStl('open box: cube with no top', OPEN_BOX));
 emit('degenerate.stl', binaryStl('one good triangle, one of zero area', DEGENERATE));
 emit('empty.stl', binaryStl('empty: a valid header declaring no triangles', []));
