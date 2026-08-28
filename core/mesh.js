@@ -16,9 +16,23 @@
 //     accumulating in float32 instead happens to land no further off. So this rule removes one
 //     error source and leaves the bigger one in place; a measured volume is not eight-digit
 //     data and T07 must not print it as though it were. See FINDINGS.md.
-//   * **Never return NaN or Infinity.** A blank in the report is worse than a wrong number,
-//     because a wrong number gets questioned and a blank gets skipped. The degenerate and
-//     empty cases each have a defined answer below.
+//   * **Never return NaN or Infinity** — for any mesh whose coordinates are real numbers of a
+//     sane magnitude. A blank in the report is worse than a wrong number, because a wrong
+//     number gets questioned and a blank gets skipped. The degenerate and empty cases each
+//     have a defined answer below.
+//
+//     Two cases escape it, and neither is T03's to decide, so both are stated here rather
+//     than quietly assumed away:
+//
+//       1. A coordinate that is not a real number. One Infinity or NaN vertex turns the
+//          bounding box, the volume, the normals and the centroid into Infinity or NaN, and
+//          `triangleNormals`' guard catches a NaN cross product but not an Infinity one.
+//          DESIGN.md §2.10 makes this a BAD_COORDINATE error that **T04 detects**.
+//       2. A coordinate that is a real number but astronomically large. Above roughly
+//          2.6e19 mm the area of a triangle exceeds what float32 holds, so `triangleAreas`
+//          — a Float32Array by interface — stores Infinity while `surfaceArea`, which
+//          accumulates in float64, stays finite. The parts then do not sum to the whole.
+//          Nothing detects this today; see FINDINGS.md.
 
 // Cross-sectional area of 1.75 mm filament, in mm^2: PI * (1.75 / 2)^2.
 const FILAMENT_AREA_MM2 = Math.PI * (1.75 / 2) ** 2;
